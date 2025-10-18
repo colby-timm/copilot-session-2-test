@@ -12,3 +12,4 @@ The project documentation will be built during the bootcamp sessions.
 - [Functional Requirements](../docs/functional-requirements.md) - Functional requirements for adding due dates and sorting tasks
 - [UI Guidelines](../docs/ui-guidelines.md) - Guidelines for using Material UI and the blue/green color palette
 - [Testing Guidelines](../docs/testing-guidelines.md) - Principles for unit and E2E/integration testing
+- [Coding Guidelines](../docs/coding-guidelines.md) - Formatting, linting, and DRY best practices
