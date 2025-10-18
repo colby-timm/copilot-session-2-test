@@ -19,16 +19,17 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    due_date TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )
 `);
 
 // Insert some initial data
 const initialItems = ['Item 1', 'Item 2', 'Item 3'];
-const insertStmt = db.prepare('INSERT INTO items (name) VALUES (?)');
+const insertStmt = db.prepare('INSERT INTO items (name, due_date) VALUES (?, ?)');
 
 initialItems.forEach(item => {
-  insertStmt.run(item);
+  insertStmt.run(item, null);
 });
 
 console.log('In-memory database initialized with sample data');
@@ -46,13 +47,18 @@ app.get('/api/items', (req, res) => {
 
 app.post('/api/items', (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, due_date } = req.body;
 
     if (!name || typeof name !== 'string' || name.trim() === '') {
       return res.status(400).json({ error: 'Item name is required' });
     }
 
-    const result = insertStmt.run(name);
+    // Validate due_date if provided
+    if (due_date && isNaN(Date.parse(due_date))) {
+      return res.status(400).json({ error: 'Invalid due date format' });
+    }
+
+    const result = insertStmt.run(name, due_date || null);
     const id = result.lastInsertRowid;
 
     const newItem = db.prepare('SELECT * FROM items WHERE id = ?').get(id);
@@ -87,6 +93,42 @@ app.delete('/api/items/:id', (req, res) => {
   } catch (error) {
     console.error('Error deleting item:', error);
     res.status(500).json({ error: 'Failed to delete item' });
+  }
+});
+
+
+app.put('/api/items/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, due_date } = req.body;
+
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ error: 'Valid item ID is required' });
+    }
+
+    // Validate name if provided
+    if (name && (typeof name !== 'string' || name.trim() === '')) {
+      return res.status(400).json({ error: 'Item name must be a non-empty string' });
+    }
+
+    // Validate due_date if provided
+    if (due_date && isNaN(Date.parse(due_date))) {
+      return res.status(400).json({ error: 'Invalid due date format' });
+    }
+
+    const existingItem = db.prepare('SELECT * FROM items WHERE id = ?').get(id);
+    if (!existingItem) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    const updateStmt = db.prepare('UPDATE items SET name = COALESCE(?, name), due_date = COALESCE(?, due_date) WHERE id = ?');
+    updateStmt.run(name, due_date, id);
+
+    const updatedItem = db.prepare('SELECT * FROM items WHERE id = ?').get(id);
+    res.json(updatedItem);
+  } catch (error) {
+    console.error('Error updating item:', error);
+    res.status(500).json({ error: 'Failed to update item' });
   }
 });
 

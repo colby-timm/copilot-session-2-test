@@ -20,20 +20,25 @@ const server = setupServer(
   
   // POST /api/items handler
   rest.post('/api/items', (req, res, ctx) => {
-    const { name } = req.body;
-    
+    const { name, due_date } = req.body;
     if (!name || name.trim() === '') {
       return res(
         ctx.status(400),
         ctx.json({ error: 'Item name is required' })
       );
     }
-    
+    if (due_date && isNaN(Date.parse(due_date))) {
+      return res(
+        ctx.status(400),
+        ctx.json({ error: 'Invalid due date format' })
+      );
+    }
     return res(
       ctx.status(201),
       ctx.json({
         id: 3,
         name,
+        due_date,
         created_at: new Date().toISOString(),
       })
     );
@@ -69,32 +74,54 @@ describe('App Component', () => {
     });
   });
 
-  test('adds a new item', async () => {
+  test('adds a new item with due date', async () => {
     const user = userEvent.setup();
-    
     await act(async () => {
       render(<App />);
     });
-    
-    // Wait for items to load
     await waitFor(() => {
       expect(screen.queryByText('Loading data...')).not.toBeInTheDocument();
     });
-    
-    // Fill in the form and submit
-    const input = screen.getByPlaceholderText('Enter item name');
+    const input = screen.getByLabelText('Item Name');
     await act(async () => {
       await user.type(input, 'New Test Item');
     });
-    
+    const dateInput = screen.getByLabelText('Due Date');
+    await act(async () => {
+      await user.type(dateInput, '2025-12-31');
+    });
     const submitButton = screen.getByText('Add Item');
     await act(async () => {
       await user.click(submitButton);
     });
-    
-    // Check that the new item appears
     await waitFor(() => {
       expect(screen.getByText('New Test Item')).toBeInTheDocument();
+      expect(screen.getByText(/Due:/)).toBeInTheDocument();
+    });
+  });
+
+  test('shows error for invalid due date', async () => {
+    const user = userEvent.setup();
+    await act(async () => {
+      render(<App />);
+    });
+    await waitFor(() => {
+      expect(screen.queryByText('Loading data...')).not.toBeInTheDocument();
+    });
+    const input = screen.getByLabelText('Item Name');
+    await act(async () => {
+      await user.type(input, 'Test Invalid Due Date');
+    });
+    const dateInput = screen.getByLabelText('Due Date');
+    await act(async () => {
+      await user.type(dateInput, 'not-a-date');
+    });
+    const submitButton = screen.getByText('Add Item');
+    await act(async () => {
+      await user.click(submitButton);
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Invalid due date format')).toBeInTheDocument();
     });
   });
 
